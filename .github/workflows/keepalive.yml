@@ -1,7 +1,7 @@
 # Optional: keeps a FREE Supabase project from pausing during long breaks
 # (free projects pause after ~7 days without activity). Daily use of the app
 # already counts as activity; this covers holidays.
-# Uses repository variables SUPABASE_URL and SUPABASE_ANON_KEY (public values).
+# Uses the public Supabase URL and publishable key (same as .env.production).
 name: supabase-keepalive
 on:
   schedule:
@@ -13,6 +13,6 @@ jobs:
     steps:
       - name: Ping database
         run: |
-          curl -fsS -X POST "${{ vars.SUPABASE_URL }}/rest/v1/rpc/ping" \
-            -H "apikey: ${{ vars.SUPABASE_ANON_KEY }}" \
+          curl -fsS -X POST "https://jhofnqvnjbxobjisfukx.supabase.co/rest/v1/rpc/ping" \
+            -H "apikey: sb_publishable_5Gq-gOjaMtCIDmIPv6ofvw_UgNqikHd" \
             -H "Content-Type: application/json" -d '{}'

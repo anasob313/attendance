@@ -9,10 +9,10 @@ Update this file with every change. Last updated: **2026-10-30**.
 |---|---|
 | Supabase project | `attendance-pwa` · ref `jhofnqvnjbxobjisfukx` · region eu-west-1 · PostgreSQL 17 · Free plan |
 | API URL | `https://jhofnqvnjbxobjisfukx.supabase.co` |
-| Frontend key | publishable key `sb_publishable_…` (public; set as GitHub variable `SUPABASE_ANON_KEY`) |
-| Live app URL | _not yet deployed — waiting for GitHub to be linked_ |
-| Hosting | GitHub Pages, built by `.github/workflows/deploy.yml` on every push to `main` |
-| Source repository | _not yet created — waiting for GitHub to be linked_ |
+| Frontend key | publishable key `sb_publishable_…` (public; committed in `.env.production`) |
+| Live app URL | **https://anasob313.github.io/attendance/** |
+| Hosting | GitHub Pages from branch `gh-pages`; `.github/workflows/deploy.yml` tests, builds and publishes on every push to `main` |
+| Source repository | https://github.com/anasob313/attendance (public; branch `main`) — GitHub user `anasob313`; Claude GitHub App installed on this repo only |
 
 ### Backend status (verified 2026-10-30)
 
@@ -25,7 +25,7 @@ Update this file with every change. Last updated: **2026-10-30**.
 | Vault secrets | ✅ `attendance_project_url`, `attendance_cron_secret` |
 | pg_cron job `send-attendance-reminders` (every minute) | ✅ running, function returns 200 |
 | Housekeeping job | ⏳ **pending owner approval** — `supabase/migrations/PENDING_20261030000002_housekeeping.sql` |
-| Auth Site URL / redirect URLs | ⏳ must be set to the live URL once deployed (dashboard only) |
+| Auth Site URL / redirect URLs | ⏳ owner to set `https://anasob313.github.io/attendance/` (dashboard only; needed for password-reset / sign-up e-mails) |
 | Custom SMTP | ⏳ not set — only the owner can receive auth e-mails until configured |
 
 ### Secrets — where they live (never in this repository)
@@ -34,7 +34,7 @@ Update this file with every change. Last updated: **2026-10-30**.
 |---|---|
 | VAPID private key, CRON_SECRET, VAPID_SUBJECT | Supabase → Edge Functions → Secrets |
 | CRON_SECRET copy, project URL | Supabase Vault |
-| VAPID public key, Supabase URL, publishable key (all public) | GitHub → Settings → Secrets and variables → Actions → **Variables** |
+| VAPID public key, Supabase URL, publishable key (all public) | `.env.production` in the repository |
 
 The VAPID key pair must never be regenerated: every device would have to re-enable notifications.
 
@@ -42,12 +42,15 @@ The VAPID key pair must never be regenerated: every device would have to re-enab
 
 Requirements: the **Supabase** connector and a linked **GitHub** account in the session.
 
-1. Clone the repository, read this file and `README.md`.
+1. Attach the repo (`add_repo anasob313/attendance`, push access), clone it, read this file and `README.md`.
+   Note: this Claude GitHub access cannot change repo settings, Actions variables or the Pages API — only push.
 2. Change the code. Keep business rules in `src/lib/attendance.ts` / the SQL.
 3. Test: `npm ci && npm test && npm run test:db` (+ `npm run test:e2e`, `npm run test:push` with Deno).
 4. Database change → new file `supabase/migrations/<timestamp>_<name>.sql`, apply with the Supabase connector (`apply_migration`), then run the security advisor.
 5. Edge Function change → deploy `index.ts`, `dispatch.ts`, `config.ts` together with `verify_jwt = false`.
 6. Commit and push to `main` → GitHub Actions tests, builds and redeploys to the same URL.
+   Check the result via `gh api repos/anasob313/attendance/commits/<sha>/check-runs` (job `deploy`).
+   Fallback if Actions fails: `BASE_PATH=/attendance/ npm run build`, copy index.html→404.html, add .nojekyll, force-push `dist/` to `gh-pages`.
 7. Update this file (status + change log).
 
 Roll back: `git revert <commit>` and push (frontend). Database changes need a new forward migration.
@@ -64,3 +67,4 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 |---|---|
 | 2026-10-29 | Initial build; migration reviewed and corrected (rev 2: explicit grants, private schema, per-user lock). |
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
+| 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |

@@ -1,5 +1,7 @@
 # Attendance — Personal Attendance Tracker (iPhone PWA)
 
+**Live app:** https://anasob313.github.io/attendance/ · Project status: [PROJECT_STATE.md](PROJECT_STATE.md)
+
 A personal, multi-user attendance tracker that installs on the iPhone Home Screen.
 Clock in / out, see a live timer against an 8-hour day (breaks included), get **one
 push reminder 20 minutes before the 8 hours are up**, record remote work and leave,
