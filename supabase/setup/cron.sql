@@ -1,0 +1,2 @@
+-- Superseded: the scheduler is applied by
+-- supabase/migrations/20261030000001_scheduler.sql (see PROJECT_STATE.md).

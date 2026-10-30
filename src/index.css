@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+
+  --color-ok: #16a34a;
+  --color-short: #dc2626;
+  --color-pending: #ea580c;
+  --color-remote: #2563eb;
+  --color-leave: #9333ea;
+  --color-holiday: #0d9488;
+  --color-weekend: #71717a;
+}
+
+:root {
+  color-scheme: light dark;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+html, body, #root { min-height: 100%; }
+
+body {
+  @apply bg-zinc-100 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+}
+
+/* iOS: avoid input zoom (needs ≥16px) and style native pickers */
+input, select, textarea, button { font: inherit; }
+input, select, textarea { font-size: 16px; }
+
+.pt-safe { padding-top: max(env(safe-area-inset-top), 0.75rem); }
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+.tabbar-space { padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem); }
+
+@utility card {
+  @apply rounded-3xl bg-white p-5 shadow-[0_1px_0_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] ring-1 ring-black/5
+         dark:bg-zinc-900 dark:shadow-none dark:ring-white/10;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 font-semibold transition
+         active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 select-none;
+  min-height: 3rem;
+}
+@utility btn-primary { @apply btn bg-zinc-900 text-white dark:bg-white dark:text-zinc-900; }
+@utility btn-secondary { @apply btn bg-zinc-900/5 text-zinc-900 dark:bg-white/10 dark:text-white; }
+@utility btn-danger { @apply btn bg-red-600 text-white; }
+@utility btn-ghost { @apply btn bg-transparent text-zinc-600 dark:text-zinc-300; min-height: 2.5rem; }
+@utility btn-xl { @apply text-lg tracking-wide; min-height: 4rem; border-radius: 1.25rem; }
+
+@utility field { @apply flex flex-col gap-1.5; }
+@utility label { @apply text-[13px] font-medium text-zinc-500 dark:text-zinc-400; }
+@utility input {
+  @apply w-full rounded-xl border-0 bg-zinc-100 px-3.5 py-3 text-zinc-900 outline-none ring-1 ring-inset ring-transparent
+         focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:ring-white;
+  min-height: 3rem;
+}
+@utility section-title { @apply px-1 pb-2 text-[13px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400; }
+@utility list-row { @apply flex items-center justify-between gap-3 py-3; }
+@utility list-divide { @apply divide-y divide-zinc-200/80 dark:divide-white/10; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.animate-sheet { animation: sheet-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-fade { animation: fade-in 0.2s ease-out; }
+.animate-pop { animation: pop-in 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet, .animate-fade, .animate-pop { animation: none; }
+}

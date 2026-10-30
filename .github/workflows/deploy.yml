@@ -1,0 +1,53 @@
+# Builds, tests and publishes the app to GitHub Pages on every push to main.
+# Public build values come from repository *variables* (Settings → Secrets and
+# variables → Actions → Variables): SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY.
+# No private keys are used here.
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Database tests (real migration in PGlite)
+        run: npm run test:db
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+        run: |
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [ "$repo" = "${GITHUB_REPOSITORY_OWNER,,}.github.io" ]; then export BASE_PATH=/; else export BASE_PATH="/$repo/"; fi
+          npm run build
+          cp dist/index.html dist/404.html   # deep links (SPA fallback)
+          touch dist/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

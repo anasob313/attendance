@@ -1,0 +1,182 @@
+[
+  {
+    "test": "unauthenticated user is sent to Log In",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "sign up lands on the dashboard",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "greeting uses the registered name",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "clock in shows the live timer and CLOCK OUT",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "exactly one active session stored on the server",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "reminder scheduled server-side at Clock In + 7h40",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "dashboard shows the reminder time",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "timer survives a reload (persisted timestamp)",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "clock out shows completed attendance",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "under 8h is shown as Short (red)",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "reminder cancelled after early Clock Out",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "undo clock out resumes the same session",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "undo keeps one session, removes Clock Out, reschedules reminder",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "remote work saved for a past day",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "form shows 8h 30m for 08:00\u201316:30 (not capped)",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "conflict dialog asks to replace Remote Work",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "REPLACE swaps Remote Work for an 8h30 office record atomically",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "annual leave over a full week counts 5 working days",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "overlapping leave triggers the conflict dialog",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "CANCEL keeps the original leave unchanged",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "monthly report renders the summary",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "Excel download is a real .xlsx named Attendance_Report_<Month>_<Year>.xlsx",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "user B sees none of user A's records",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "offline Clock In is SAVED LOCALLY",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "nothing reached the server while offline",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "app shell opens offline and the timer is still running",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "back online \u2192 SYNCED",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "synced Clock In keeps the original tap time (not sync time), no duplicates",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "settings change reschedules the reminder for this user only",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "deletion offers data export first",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "after deletion the user is signed out",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "account deletion removes all of B's data and nothing of A's",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "wrong password shows a clear error",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "log in on another device shows the same data",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "login persists across app restarts",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "log out returns to the sign-in screen",
+    "passed": true,
+    "error": ""
+  }
+]
