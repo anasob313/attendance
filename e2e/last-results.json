@@ -178,5 +178,35 @@
     "test": "log out returns to the sign-in screen",
     "passed": true,
     "error": ""
+  },
+  {
+    "test": "'Confirm email' link signs the new user in",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "tokens are removed from the address bar",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "'Reset password' link opens the new-password screen",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "after saving, the user lands in the app",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "the new password works for sign-in",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "an expired/invalid reset link shows a clear message",
+    "passed": true,
+    "error": ""
   }
 ]

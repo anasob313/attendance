@@ -291,6 +291,36 @@ def main():
             p3.get_by_role("button", name="Sign out", exact=True).click()
             p3.get_by_role("button", name="SIGN OUT", exact=True).click()
             check("log out returns to the sign-in screen", lambda: expect(p3.get_by_role("button", name="Sign in")).to_be_visible(timeout=10000))
+
+            # ---------------------------------------- links from auth e-mails
+            # Supabase redirects e-mail links to the app with the session in the
+            # URL fragment. Simulate exactly those redirects.
+            print("E-mail links")
+            def mock_session(email, password):
+                req = urllib.request.Request(f"{MOCK}/auth/v1/token?grant_type=password",
+                                             data=json.dumps({"email": email, "password": password}).encode(),
+                                             headers={"Content-Type": "application/json"}, method="POST")
+                return json.loads(urllib.request.urlopen(req).read())
+            s = mock_session("anas@example.com", "secret-pass-1")
+            frag = f"access_token={s['access_token']}&expires_at={s['expires_at']}&expires_in=3600&refresh_token={s['refresh_token']}&token_type=bearer"
+            ctx4 = browser.new_context(**ctx_opts)
+            p4 = ctx4.new_page()
+            p4.goto(f"{BASE}/#{frag}&type=signup")
+            check("'Confirm email' link signs the new user in", lambda: expect(p4.get_by_role("button", name="Undo Clock Out")).to_be_visible(timeout=10000))
+            check("tokens are removed from the address bar", lambda: (lambda u: None if "access_token" not in u else (_ for _ in ()).throw(AssertionError(u)))(p4.url))
+            ctx5 = browser.new_context(**ctx_opts)
+            p5 = ctx5.new_page()
+            p5.goto(f"{BASE}/reset-password#{frag}&type=recovery")
+            check("'Reset password' link opens the new-password screen", lambda: expect(p5.get_by_role("heading", name="Choose a new password")).to_be_visible(timeout=10000))
+            shot(p5, "17-reset-password")
+            p5.get_by_label("New password", exact=True).fill("brand-new-pass-9")
+            p5.get_by_label("Confirm new password").fill("brand-new-pass-9")
+            p5.get_by_role("button", name="Save password").click()
+            check("after saving, the user lands in the app", lambda: expect(p5.get_by_role("button", name="Undo Clock Out")).to_be_visible(timeout=10000))
+            check("the new password works for sign-in", lambda: mock_session("anas@example.com", "brand-new-pass-9")["access_token"])
+            p6 = browser.new_context(**ctx_opts).new_page()
+            p6.goto(f"{BASE}/reset-password")
+            check("an expired/invalid reset link shows a clear message", lambda: expect(p6.get_by_text("Link expired")).to_be_visible(timeout=10000))
             browser.close()
     finally:
         mock.terminate()
