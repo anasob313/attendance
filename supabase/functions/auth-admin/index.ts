@@ -1,52 +1,28 @@
 // Supabase Edge Function: auth-admin
 //
-// Owner-only maintenance for Auth (email) configuration and end-to-end tests.
+// TEMPORARY test runner for the email set-up (removed after testing).
+// Holds NO tokens or SMTP credentials — Auth is configured from SQL using a
+// scoped token kept only in Vault (see supabase/setup/auth_email.sql).
 // Called from SQL with pg_net and the header `x-admin-secret` (= CRON_SECRET,
-// read from Vault) — never from the app. Responses never contain secrets.
-//
-// Secrets (Edge Function secrets, entered by the owner in the dashboard):
-//   MGMT_TOKEN     Supabase personal access token (only needed for audit/configure;
-//                  revoke it after setup)
-//   SMTP_USER      Gmail address used to send auth emails
-//   SMTP_PASSWORD  Gmail app password
+// read from Vault). Responses never contain secrets.
 //
 // Actions (POST JSON {"action": ...}):
-//   audit      read the current auth config (non-secret fields)
-//   configure  apply desiredAuthConfig() — SMTP, Site URL, redirect URLs, templates
 //   e2e_start / e2e_confirm / e2e_isolation / e2e_reset / e2e_cleanup
 //              real-email test using throw-away mail.tm inboxes
 //
 // Deploy: verify_jwt = false (authenticated by x-admin-secret instead).
-import { APP_URL, cleanSecret, desiredAuthConfig, extractVerifyLink, parseFragment, redact, safeEqual, summarizeConfig } from './lib.ts';
+import { APP_URL, cleanSecret, extractVerifyLink, parseFragment, redact, safeEqual } from './lib.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const REF = new URL(SUPABASE_URL || 'https://x.supabase.co').hostname.split('.')[0];
 // Public key (also committed in .env.production); env var preferred when present.
 const ANON = Deno.env.get('SUPABASE_ANON_KEY') || 'sb_publishable_5Gq-gOjaMtCIDmIPv6ofvw_UgNqikHd';
 const ADMIN_SECRET = cleanSecret(Deno.env.get('CRON_SECRET'), 'CRON_SECRET');
-const MGMT_TOKEN = cleanSecret(Deno.env.get('MGMT_TOKEN'), 'MGMT_TOKEN');
-const SMTP_USER = cleanSecret(Deno.env.get('SMTP_USER'), 'SMTP_USER').replace(/\s+/g, '').toLowerCase();
-const SMTP_PASSWORD = cleanSecret(Deno.env.get('SMTP_PASSWORD'), 'SMTP_PASSWORD').replace(/\s+/g, ''); // app passwords are shown with spaces
-const SECRETS = [MGMT_TOKEN, SMTP_PASSWORD, ADMIN_SECRET];
+const SECRETS = [ADMIN_SECRET];
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(redact(body, SECRETS)), { status, headers: { 'Content-Type': 'application/json' } });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// ---------------------------------------------------------------- Management API
-async function mgmt(method: 'GET' | 'PATCH', body?: unknown) {
-  if (!MGMT_TOKEN) throw new Error('MGMT_TOKEN secret is not set');
-  const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/config/auth`, {
-    method,
-    headers: { Authorization: `Bearer ${MGMT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let data: unknown = text;
-  try { data = JSON.parse(text); } catch { /* keep text */ }
-  if (!res.ok) throw new Error(`Management API ${method} ${res.status}: ${typeof data === 'string' ? data.slice(0, 300) : JSON.stringify(data).slice(0, 300)}`);
-  return data as Record<string, unknown>;
-}
 
 // ---------------------------------------------------------------- Auth REST
 async function auth(path: string, init: RequestInit & { token?: string } = {}) {
@@ -218,14 +194,6 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   try {
     switch (body.action) {
-      case 'audit':
-        return json({ config: summarizeConfig(await mgmt('GET')), secretsPresent: { MGMT_TOKEN: Boolean(MGMT_TOKEN), SMTP_USER: Boolean(SMTP_USER), SMTP_PASSWORD: Boolean(SMTP_PASSWORD) } });
-      case 'configure': {
-        if (!SMTP_USER || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(SMTP_USER)) return json({ error: 'SMTP_USER is missing or not an email address' }, 400);
-        if (SMTP_PASSWORD.length < 8) return json({ error: 'SMTP_PASSWORD is missing or too short' }, 400);
-        await mgmt('PATCH', desiredAuthConfig(SMTP_USER, SMTP_PASSWORD));
-        return json({ applied: true, config: summarizeConfig(await mgmt('GET')) });
-      }
       case 'e2e_start': return json(await e2eStart());
       case 'e2e_confirm': return json(await e2eConfirm(body.users));
       case 'e2e_isolation': return json(await e2eIsolation(body.users));

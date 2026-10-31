@@ -1,24 +1,9 @@
 // deno test supabase/functions/auth-admin/lib.test.ts
 import { strict as A } from 'node:assert';
-import { APP_URL, cleanSecret, desiredAuthConfig, extractVerifyLink, maskEmail, parseFragment, redact, safeEqual, summarizeConfig } from './lib.ts';
+import { APP_URL, cleanSecret, extractVerifyLink, maskEmail, parseFragment, redact, safeEqual } from './lib.ts';
 
-Deno.test('desired config keeps email verification on and points links at the live app', () => {
-  const c = desiredAuthConfig('sender@gmail.com', 'abcd efgh ijkl mnop');
-  A.equal(c.mailer_autoconfirm, false);
-  A.equal(c.external_email_enabled, true);
-  A.equal(c.site_url, APP_URL);
-  A.equal(c.uri_allow_list, `${APP_URL},${APP_URL}**`);
-  A.equal(c.smtp_admin_email, 'sender@gmail.com');
-  for (const k of ['mailer_templates_confirmation_content', 'mailer_templates_recovery_content', 'mailer_templates_email_change_content'] as const) {
-    A.ok(c[k].includes('{{ .ConfirmationURL }}'), k);
-  }
-});
-
-Deno.test('audit view never contains the SMTP password', () => {
-  const s = summarizeConfig({ smtp_pass: 'super-secret-pass', smtp_user: 'sender@gmail.com', site_url: APP_URL });
-  A.equal(JSON.stringify(s).includes('super-secret-pass'), false);
-  A.equal(s.smtp_pass_set, true);
-  A.equal(s.smtp_user, 'se***@gmail.com');
+Deno.test('masks e-mail addresses', () => {
+  A.equal(maskEmail('sender@gmail.com'), 'se***@gmail.com');
   A.equal(maskEmail(null), null);
 });
 
