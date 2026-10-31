@@ -75,6 +75,7 @@ before(async () => {
   // someone signed up before the migration was run
   await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'early@example.com', '{"full_name":"Early Bird"}')`, [EARLY]);
   await db.exec(migration);
+  await db.exec(readFileSync(new URL('../migrations/20261031000001_oauth_profile_name.sql', import.meta.url), 'utf8'));
   users.a = await newUser('Alice');
   users.b = await newUser('Bob');
 });
@@ -413,4 +414,13 @@ test('direct table writes still obey conflict rules (no RPC bypass)', async () =
     await expectError(q(`insert into public.leaves (leave_type, start_date, end_date) values ('sick', $1, $1)`, [d]), 'AT409');
     await expectError(q(`insert into public.attendance_sessions (clock_in) values ((($1::date) + time '08:00') at time zone 'Asia/Riyadh')`, [d]), 'AT409');
   });
+});
+
+test('Google sign-up: profile name comes from full_name or name', async () => {
+  const id1 = randomUUID(), id2 = randomUUID();
+  await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'g1@example.com', $2)`, [id1, JSON.stringify({ name: 'Only Name' })]);
+  await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'g2@example.com', $2)`, [id2, JSON.stringify({ full_name: 'Full Name', name: 'Other' })]);
+  assert.equal((await one(`select full_name from profiles where id = $1`, [id1])).full_name, 'Only Name');
+  assert.equal((await one(`select full_name from profiles where id = $1`, [id2])).full_name, 'Full Name');
+  assert.equal((await one(`select work_minutes from user_settings where user_id = $1`, [id1])).work_minutes, 480);
 });

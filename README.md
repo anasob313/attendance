@@ -72,7 +72,7 @@ scripts/          generate-vapid-keys.mjs · generate-icons.mjs
 
 ## Getting started
 
-1. Follow **[SETUP.md](SETUP.md)** (Supabase, SMTP, VAPID keys, Edge Function, scheduler, Cloudflare Pages, iPhone install).
+1. Follow **[SETUP.md](SETUP.md)** (Supabase, Google sign-in, VAPID keys, Edge Function, scheduler, Cloudflare Pages, iPhone install).
 2. Local development: `cp .env.example .env.local`, fill the three values, `npm install`, `npm run dev`.
 
 ## Scripts

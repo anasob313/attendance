@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { EMAIL_SIGNUP_ENABLED, appUrl, signInWithGoogle } from '../lib/oauth';
 import { useAuth } from '../state/auth';
 import { Notice, Spinner } from '../components/ui';
 
@@ -8,10 +9,50 @@ function friendly(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Incorrect email or password.';
   if (/email not confirmed/i.test(message)) return 'Please confirm your email first — check your inbox for the confirmation link.';
   if (/already registered|already exists/i.test(message)) return 'An account with this email already exists. Try signing in or resetting your password.';
-  if (/email address not authorized/i.test(message)) return 'The server cannot send emails yet (custom SMTP is not configured). Ask the app owner to set it up.';
+  if (/email address not authorized|error sending/i.test(message)) return 'Email sending is not available for this address. If you use Google to sign in, choose “Continue with Google” instead.';
   if (/rate limit|too many/i.test(message)) return 'Too many attempts. Please wait a few minutes and try again.';
   if (/failed to fetch|load failed|network/i.test(message)) return 'No internet connection.';
   return message;
+}
+
+function GoogleLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
+/** "Continue with Google" — creates the account on first use, signs in afterwards. */
+function GoogleButton() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="space-y-3">
+      <button type="button" disabled={busy}
+        className="btn w-full bg-white text-zinc-900 ring-1 ring-zinc-300 dark:bg-zinc-800 dark:text-white dark:ring-white/15"
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          const err = await signInWithGoogle();     // navigates to Google on success
+          if (err) { setError(err); setBusy(false); }
+        }}>
+        {busy ? <Spinner /> : <><GoogleLogo />Continue with Google</>}
+      </button>
+      {error && <Notice tone="error">{error}</Notice>}
+    </div>
+  );
+}
+
+function Divider({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-zinc-400">
+      <span className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />{text}<span className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
+    </div>
+  );
 }
 
 function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
@@ -59,6 +100,8 @@ export function LoginPage() {
       <form className="space-y-4" onSubmit={submit}>
         {deleted && <Notice tone="success">Your account and all of its data were deleted.</Notice>}
         {params.get('expired') && <Notice tone="warn">Please sign in again. Unsynced changes on this device are kept.</Notice>}
+        <GoogleButton />
+        <Divider text="or with email" />
         <label className="field"><span className="label">Email</span>
           <input className="input" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
@@ -91,7 +134,7 @@ export function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email: form.email.trim(),
       password: form.password,
-      options: { data: { full_name: form.name.trim() }, emailRedirectTo: `${location.origin}${import.meta.env.BASE_URL}` },
+      options: { data: { full_name: form.name.trim() }, emailRedirectTo: appUrl() },
     }).catch((x) => ({ data: { session: null, user: null }, error: x as Error }));
     setBusy(false);
     if (error) return setError(friendly(error.message));
@@ -112,7 +155,14 @@ export function SignupPage() {
 
   return (
     <AuthShell title="Create account" footer={<>Already have an account? <Link to="/login" className="font-semibold text-zinc-900 underline dark:text-white">Sign in</Link></>}>
-      <form className="space-y-4" onSubmit={submit}>
+      <div className="space-y-4">
+        <GoogleButton />
+        <p className="text-center text-xs leading-relaxed text-zinc-500">
+          Your attendance records are private to your account. Google confirms your email and handles account recovery.
+        </p>
+      </div>
+      {EMAIL_SIGNUP_ENABLED && <div className="mt-5"><Divider text="or with email" /></div>}
+      {EMAIL_SIGNUP_ENABLED && <form className="mt-4 space-y-4" onSubmit={submit}>
         <label className="field"><span className="label">Full name</span>
           <input className="input" autoComplete="name" required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </label>
@@ -127,7 +177,7 @@ export function SignupPage() {
         </label>
         {(problem || error) && <Notice tone="error">{problem ?? error}</Notice>}
         <button className="btn-primary w-full" disabled={busy || !!problem}>{busy ? <Spinner /> : 'Create account'}</button>
-      </form>
+      </form>}
     </AuthShell>
   );
 }
@@ -142,7 +192,7 @@ export function ForgotPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}${import.meta.env.BASE_URL}reset-password` })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: appUrl('reset-password') })
       .catch((x) => ({ error: x as Error }));
     setBusy(false);
     if (error && !/rate limit/i.test(error.message)) setError(friendly(error.message));
@@ -157,6 +207,7 @@ export function ForgotPage() {
         </p>
       ) : (
         <form className="space-y-4" onSubmit={submit}>
+          <Notice>Signed up with Google? You don’t have a password here — go back and choose “Continue with Google”. Google handles recovery of your Google account.</Notice>
           <label className="field"><span className="label">Email</span>
             <input className="input" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>

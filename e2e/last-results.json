@@ -208,5 +208,45 @@
     "test": "an expired/invalid reset link shows a clear message",
     "passed": true,
     "error": ""
+  },
+  {
+    "test": "sign-up screen offers Continue with Google",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "Google sign-in creates the account and opens the app",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "profile name comes from Google",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "Google account gets its own profile and default settings",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "Google user sees none of the existing user's records",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "Google account shows its sign-in method instead of a password form",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "signing in with Google again opens the same account",
+    "passed": true,
+    "error": ""
+  },
+  {
+    "test": "no duplicate account is created",
+    "passed": true,
+    "error": ""
   }
 ]

@@ -65,7 +65,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 | Item | Where |
 |---|---|
 | Supabase project + run migration | SETUP.md §1 |
-| Custom SMTP for sign-up / password e-mails | SETUP.md §1 |
+| Google sign-in provider + Site URL | SETUP.md §1 |
 | VAPID keys | SETUP.md §2 |
 | Edge Function deploy + secrets | SETUP.md §3 |
 | Every-minute scheduler (`cron.sql`) | SETUP.md §4 |
@@ -95,7 +95,8 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 **Platform / free tier**
 - Free Supabase projects pause after ~7 days without activity (restorable, no data loss) and have no automatic backups — use **Export all records** periodically.
 - Password-reset and confirmation links open in Safari, not in the Home Screen app; afterwards sign in inside the app.
-- Supabase's built-in e-mail only reaches your Supabase team members; custom SMTP is needed for everyone else.
+- New users sign up with Google. Supabase's built-in e-mail only reaches your Supabase team members, so e-mail sign-up is hidden; existing e-mail accounts still sign in with their password.
+- Google sign-in inside the iPhone Home Screen app is NOT VERIFIED on a real device yet (tested in Chromium with an emulated Google flow).
 - Free tiers can change; nothing here is guaranteed to remain free.
 
 ## Final implementation checklist (section 27)
@@ -104,7 +105,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 |---|---|---|---|
 | 1 | Runnable source code | IMPLEMENTED · builds | `src/`, `supabase/`, `package.json` |
 | 2 | Database schema | IMPLEMENTED · TESTED | `supabase/migrations/20261029000001_schema.sql` |
-| 3 | Authentication (sign up, log in, log out, forgot/reset password, persistent login) | IMPLEMENTED · TESTED with emulated auth (sign up, log in, wrong password, persistent login across reloads, log out, second device) · confirmation / reset e-mails NOT VERIFIED (need SMTP) | `src/pages/Auth.tsx`, `src/state/auth.tsx` |
+| 3 | Authentication (sign up, log in, log out, forgot/reset password, persistent login) | IMPLEMENTED · TESTED with emulated auth (sign up, log in, wrong password, persistent login across reloads, log out, second device) · Google sign-in TESTED with emulated provider · e-mail links handled (TESTED) · real Google + iPhone NOT VERIFIED | `src/pages/Auth.tsx`, `src/state/auth.tsx` |
 | 4 | Row Level Security | IMPLEMENTED · TESTED | migration (policies + revokes) |
 | 5 | Attendance calculation | IMPLEMENTED · TESTED | `src/lib/attendance.ts`, `src/lib/time.ts` |
 | 6 | Remote Work | IMPLEMENTED · TESTED | dashboard, `DayEditor.tsx`, `set_remote` / `delete_remote` |

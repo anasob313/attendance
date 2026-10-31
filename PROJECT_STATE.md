@@ -1,7 +1,7 @@
 # Project State — Attendance PWA (بصمة الدوام)
 
 Single source of truth for anyone (human or AI) continuing this project.
-Update this file with every change. Last updated: **2026-10-30**.
+Update this file with every change. Last updated: **2026-10-31**.
 
 ## Production
 
@@ -19,14 +19,17 @@ Update this file with every change. Last updated: **2026-10-30**.
 | Component | Status |
 |---|---|
 | Schema migration `20261029000001_schema.sql` (rev 2) | ✅ applied — 7 tables with RLS, 16 public RPCs, 17 private helpers |
+| Migration `20261031000001_oauth_profile_name.sql` | ✅ applied — new accounts take the profile name from `full_name` or `name` (Google) |
 | Sign-up trigger `attendance_on_auth_user_created` | ✅ present; owner account exists and is confirmed |
 | Edge Function `send-reminders` | ✅ v6 deployed (verify_jwt = false); secrets cleaned on read (`config.ts`) |
 | Function secrets | ✅ VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRON_SECRET — valid, key pair matches (verified by the function) |
 | Vault secrets | ✅ `attendance_project_url`, `attendance_cron_secret` |
 | pg_cron job `send-attendance-reminders` (every minute) | ✅ running, function returns 200 |
 | Housekeeping job | ⏳ **pending owner approval** — `supabase/migrations/PENDING_20261030000002_housekeeping.sql` |
-| Auth Site URL / redirect URLs | ⏳ owner to set `https://anasob313.github.io/attendance/` (dashboard only; needed for password-reset / sign-up e-mails) |
-| Custom SMTP | ⏳ not set — only the owner can receive auth e-mails until configured |
+| Edge Function `auth-admin` | 🗑️ retired (v3 = empty stub returning 410, verify_jwt on, no secrets). Owner may delete it in the dashboard; the connector has no delete tool |
+| Google sign-in (Supabase provider `google`) | ⏳ owner setup in progress — see "Authentication" below |
+| Auth Site URL / redirect URLs | ⏳ owner to set Site URL `https://anasob313.github.io/attendance/` and redirect `https://anasob313.github.io/attendance/**` (dashboard only) |
+| Custom SMTP | ❌ not used (decision 2026-10-31) — no email sender without buying a domain |
 
 ### Secrets — where they live (never in this repository)
 
@@ -37,6 +40,16 @@ Update this file with every change. Last updated: **2026-10-30**.
 | VAPID public key, Supabase URL, publishable key (all public) | `.env.production` in the repository |
 
 The VAPID key pair must never be regenerated: every device would have to re-enable notifications.
+
+## Authentication (decision 2026-10-31)
+
+- **New users: "Continue with Google" only** (owner approved). Google verifies the email and handles account recovery; no confirmation/reset emails are needed. Free, no domain.
+- **Existing e-mail accounts** (the owner's) keep signing in with e-mail + password. Their password-reset email still works through Supabase's built-in mailer, which only delivers to members of the Supabase organization (the owner).
+- E-mail + password **sign-up is hidden**, not removed: build flag `VITE_EMAIL_SIGNUP=true` re-enables it (used by the browser tests). Turn it on only after a real email sender exists.
+- Email verification is **not** disabled (`mailer_autoconfirm = false`).
+- Alternatives evaluated: Gmail SMTP (owner could not create a dedicated Gmail), Brevo/Mailjet/SMTP2GO (sender address shown to users, deliverability issues without own domain), Resend (needs own domain), Sign in with Apple (needs Apple Developer Program, $99/yr). Cheapest email path later: a domain (~$10/yr) + Resend free tier.
+- Google consent-screen "user support email" is a Google Group alias, so the owner's personal address is not shown.
+- Google OAuth client redirect URI: `https://jhofnqvnjbxobjisfukx.supabase.co/auth/v1/callback`. Client ID/secret live only in Supabase (Auth → Providers → Google).
 
 ## How to make a change (workflow for future sessions)
 
@@ -57,6 +70,7 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 
 ## Known limitations
 
+- Google sign-in inside the iPhone Home Screen app: iOS opens Google in an in-app browser sheet and returns to the app; verified in Chromium tests only until tested on the owner's iPhone.
 - Free Supabase projects pause after ~7 days without activity (daily use prevents it; `keepalive.yml` pings every 2 days). No automatic backups on Free — use **Profile → Export all records**.
 - GitHub disables scheduled workflows after 60 days without commits (re-enable in Actions).
 - Push needs iOS 16.4+, the Home Screen app, and permission per device. Delivery is typically within ~1 minute of Clock In + 7h40.
@@ -68,3 +82,4 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 | 2026-10-29 | Initial build; migration reviewed and corrected (rev 2: explicit grants, private schema, per-user lock). |
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
 | 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |
+| 2026-10-31 | Email plan (Gmail SMTP) dropped; added "Continue with Google"; new-user email sign-up hidden (owner approved); profile-name migration applied; temporary `auth-admin` function retired (stub) and its code removed; browser tests extended (email-link handling, Google flow) — 50/50 pass. |

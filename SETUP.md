@@ -19,7 +19,7 @@ and a **Cloudflare** account (all free).
 | Reminder sender | Supabase Edge Function | 500,000 invocations / month | One call per minute ≈ 44,640 / month (~9 %) |
 | Push delivery | Apple / Google / Mozilla Web Push services | Free, no developer account | Signed with your own VAPID keys |
 | Hosting | Cloudflare Pages Free | Unlimited static bandwidth & requests, 500 builds / month | Any static host works |
-| Auth e-mails | **Custom SMTP required** | Gmail (App Password) or a free tier of Brevo / Resend etc. | Supabase's built-in mailer only sends to your Supabase team members and is heavily rate-limited |
+| Sign-up / account recovery | Google sign-in via Supabase Auth | Free | No e-mail sender needed. Supabase's built-in mailer only reaches your Supabase team members, so e-mail sign-up is hidden (build flag `VITE_EMAIL_SIGNUP`) |
 
 Nothing here requires a credit card. No paid service is introduced. Free tiers can
 change — re-check the pricing pages before you depend on them.
@@ -47,19 +47,19 @@ change — re-check the pricing pages before you depend on them.
 - *Confirm email* **on** (recommended): users click a link before first sign-in.
 - *Confirm email* **off**: sign-up works instantly, useful if you have not set up SMTP yet.
 
-### E-mail (SMTP) — required for other people to sign up / reset passwords
+### Google sign-in (how new users create accounts)
 
-**Authentication → Emails → SMTP Settings → Enable custom SMTP**. Two free options:
+1. **Google Cloud** → <https://console.cloud.google.com/auth/overview> → create a project,
+   *Branding*: app name, a support e-mail (use a Google Group address so your personal
+   address is not shown), *Audience*: External → **Publish app**.
+2. *Clients* → **Create client** → *Web application* → Authorized redirect URI
+   `https://<PROJECT_REF>.supabase.co/auth/v1/callback`. Copy the Client ID and secret.
+3. **Supabase → Authentication → Sign In / Providers → Google** → enable, paste both → Save.
 
-- **Gmail** (simplest for a small group): turn on 2-Step Verification on the Google
-  account, create an **App Password** (Google Account → Security → App passwords), then
-  Host `smtp.gmail.com`, Port `465`, Username = the Gmail address, Password = the app password,
-  Sender email = the same Gmail address.
-- **Brevo / Resend / similar**: create a free account, verify a sender or domain, and copy
-  their SMTP host, port, user and key.
-
-Without custom SMTP, confirmation and password-reset e-mails reach **only** members of
-your Supabase organization.
+E-mail + password sign-in keeps working for existing accounts. E-mail sign-up is hidden
+unless the site is built with `VITE_EMAIL_SIGNUP=true`; only enable that after setting up
+custom SMTP with your own domain (e.g. Resend's free tier), because without it confirmation
+and reset e-mails reach **only** members of your Supabase organization.
 
 ---
 
@@ -194,7 +194,7 @@ The service worker (offline + push) is active in `npm run build && npm run previ
 | Symptom | Check |
 |---|---|
 | "Setup required" screen | The three `VITE_` variables were not set at build time — set them and redeploy |
-| "Email address not authorized" on sign-up | Custom SMTP is not configured (step 1) |
+| "Email address not authorized" on sign-up | Custom SMTP is not configured — new users should use **Continue with Google** |
 | Notification button missing on iPhone | App not opened from the Home Screen icon, or iOS < 16.4 |
 | "Notifications are blocked" | iPhone Settings → Notifications → Attendance → Allow |
 | Test works, 7h40 reminder doesn't | `cron.job_run_details` and `net._http_response` (step 4); `select * from reminders order by updated_at desc` |

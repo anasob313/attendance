@@ -15,6 +15,9 @@ import { IconDownload, IconTrash } from '../components/icons';
 export function AccountPage() {
   const data = useData();
   const { user } = useAuth();
+  // Accounts created with Google have no password; e-mail accounts do.
+  const providers = (user?.app_metadata?.providers as string[] | undefined) ?? [user?.app_metadata?.provider as string];
+  const hasPassword = providers.includes('email');
   const { toast } = useUi();
   const navigate = useNavigate();
   const [name, setName] = useState(data.profile?.full_name ?? '');
@@ -78,7 +81,14 @@ export function AccountPage() {
           </button>
         </section>
 
-        <section className="card space-y-4">
+        {!hasPassword && (
+          <section className="card space-y-2">
+            <h2 className="font-semibold">Sign-in method</h2>
+            <p className="text-sm text-zinc-500">You sign in with Google. There is no separate password for this app — your Google account’s security and recovery apply.</p>
+          </section>
+        )}
+
+        {hasPassword && <section className="card space-y-4">
           <h2 className="font-semibold">Change password</h2>
           <label className="field"><span className="label">New password</span>
             <input className="input" type="password" autoComplete="new-password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
@@ -96,7 +106,7 @@ export function AccountPage() {
             })}>
             {busy === 'pw' ? <Spinner /> : 'Change password'}
           </button>
-        </section>
+        </section>}
 
         <section className="card space-y-3">
           <h2 className="font-semibold">Your data</h2>

@@ -17,7 +17,7 @@ const db = await PGlite.create({ extensions: { btree_gist } });
 await db.exec(`
   create schema if not exists auth; create schema if not exists extensions;
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
-  create table auth.users (id uuid primary key default gen_random_uuid(), email text unique, raw_user_meta_data jsonb not null default '{}', created_at timestamptz default now());
+  create table auth.users (id uuid primary key default gen_random_uuid(), email text unique, raw_user_meta_data jsonb not null default '{}', raw_app_meta_data jsonb not null default '{"provider":"email","providers":["email"]}', created_at timestamptz default now());
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema public, auth, extensions to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated, service_role;
@@ -25,6 +25,7 @@ await db.exec(`
   set search_path = public, extensions;
 `);
 await db.exec(migration);
+await db.exec(readFileSync(new URL('../supabase/migrations/20261031000001_oauth_profile_name.sql', import.meta.url), 'utf8'));
 
 const passwords = new Map();
 let lock = Promise.resolve();
@@ -40,9 +41,9 @@ function claims(req) {
   try { const p = JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString()); return p.sub ? p : null; } catch { return null; }
 }
 async function userRow(id) {
-  const r = await db.query(`select id, email, raw_user_meta_data, created_at from auth.users where id = $1`, [id]);
+  const r = await db.query(`select id, email, raw_user_meta_data, raw_app_meta_data, created_at from auth.users where id = $1`, [id]);
   const u = r.rows[0];
-  return u && { id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, user_metadata: u.raw_user_meta_data, app_metadata: {}, created_at: u.created_at.toISOString() };
+  return u && { id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, user_metadata: u.raw_user_meta_data, app_metadata: u.raw_app_meta_data, created_at: u.created_at.toISOString() };
 }
 async function session(id) {
   const user = await userRow(id);
@@ -178,6 +179,23 @@ async function auth(req, res, url, body) {
     return send(res, 200, await userRow(c.sub));
   }
   if (path === 'logout') return send(res, 204);
+  // Public settings: which sign-in providers are enabled
+  if (path === 'settings') return send(res, 200, { external: { email: true, google: process.env.MOCK_GOOGLE !== 'off' }, mailer_autoconfirm: false, disable_signup: false });
+  // Simulated Google OAuth: sign in (creating on first use) and redirect back with the session
+  if (path === 'authorize' && url.searchParams.get('provider') === 'google') {
+    const email = process.env.MOCK_GOOGLE_EMAIL ?? 'friend.google@example.com';
+    let r = await db.query(`select id from auth.users where email = $1`, [email]);
+    if (!r.rows.length) {
+      await db.query(`insert into auth.users (email, raw_user_meta_data, raw_app_meta_data) values ($1, $2, $3)`,
+        [email, JSON.stringify({ name: 'Google Friend', full_name: 'Google Friend', email_verified: true }), JSON.stringify({ provider: 'google', providers: ['google'] })]);
+      r = await db.query(`select id from auth.users where email = $1`, [email]);
+    }
+    const sess = await session(r.rows[0].id);
+    const back = url.searchParams.get('redirect_to');
+    const frag = `access_token=${sess.access_token}&expires_at=${sess.expires_at}&expires_in=3600&refresh_token=${sess.refresh_token}&token_type=bearer&provider_token=g`;
+    res.writeHead(302, { ...cors, Location: `${back}#${frag}` });
+    return res.end();
+  }
   if (path === 'recover') return send(res, 200, {});
   return send(res, 404, { message: `auth ${path} not mocked` });
 }

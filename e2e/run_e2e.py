@@ -321,6 +321,34 @@ def main():
             p6 = browser.new_context(**ctx_opts).new_page()
             p6.goto(f"{BASE}/reset-password")
             check("an expired/invalid reset link shows a clear message", lambda: expect(p6.get_by_text("Link expired")).to_be_visible(timeout=10000))
+
+            # ------------------------------------------------ Google sign-in
+            print("Google sign-in")
+            ctx7 = browser.new_context(**ctx_opts)
+            p7 = ctx7.new_page()
+            p7.goto(f"{BASE}/signup")
+            check("sign-up screen offers Continue with Google", lambda: expect(p7.get_by_role("button", name="Continue with Google")).to_be_visible())
+            shot(p7, "18-signup-google")
+            p7.get_by_role("button", name="Continue with Google").click()
+            check("Google sign-in creates the account and opens the app", lambda: expect(p7.get_by_role("button", name="CLOCK IN")).to_be_visible(timeout=15000))
+            check("profile name comes from Google", lambda: expect(p7.get_by_text("Google", exact=False).first).to_be_visible())
+            def g_profile():
+                r = admin("select p.full_name from public.profiles p join auth.users u on u.id = p.id where u.email = 'friend.google@example.com'")
+                assert r and r[0]["full_name"] == "Google Friend", r
+            check("Google account gets its own profile and default settings", g_profile)
+            p7.get_by_role("link", name="History", exact=True).click()
+            check("Google user sees none of the existing user's records", lambda: expect(p7.get_by_text("No records yet.")).to_be_visible())
+            p7.goto(f"{BASE}/account")
+            check("Google account shows its sign-in method instead of a password form", lambda: (expect(p7.get_by_text("You sign in with Google")).to_be_visible(), expect(p7.get_by_role("heading", name="Change password")).to_have_count(0)))
+            p7.get_by_role("link", name="Settings", exact=True).click() if p7.get_by_role("link", name="Settings", exact=True).count() else None
+            p7.goto(f"{BASE}/settings")
+            p7.get_by_role("button", name="Sign out", exact=True).click()
+            p7.get_by_role("button", name="SIGN OUT", exact=True).click()
+            expect(p7.get_by_role("button", name="Continue with Google")).to_be_visible(timeout=10000)
+            p7.get_by_role("button", name="Continue with Google").click()
+            check("signing in with Google again opens the same account", lambda: expect(p7.get_by_role("button", name="CLOCK IN")).to_be_visible(timeout=15000))
+            check("no duplicate account is created", lambda: (lambda r: None if r[0]["n"] == 1 else (_ for _ in ()).throw(AssertionError(r)))(
+                admin("select count(*)::int as n from auth.users where email = 'friend.google@example.com'")))
             browser.close()
     finally:
         mock.terminate()
