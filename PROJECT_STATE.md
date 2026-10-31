@@ -48,7 +48,13 @@ The VAPID key pair must never be regenerated: every device would have to re-enab
 - E-mail + password **sign-up is hidden**, not removed: build flag `VITE_EMAIL_SIGNUP=true` re-enables it (used by the browser tests). Turn it on only after a real email sender exists.
 - Email verification is **not** disabled (`mailer_autoconfirm = false`).
 - Alternatives evaluated: Gmail SMTP (owner could not create a dedicated Gmail), Brevo/Mailjet/SMTP2GO (sender address shown to users, deliverability issues without own domain), Resend (needs own domain), Sign in with Apple (needs Apple Developer Program, $99/yr). Cheapest email path later: a domain (~$10/yr) + Resend free tier.
-- Google consent-screen "user support email" is a Google Group alias, so the owner's personal address is not shown.
+- Google consent-screen "user support email" and developer contact = `attendance-app-support@googlegroups.com` (Google Group), so the owner's personal address is not shown.
+- Public pages required by Google (static files in `public/`, excluded from the app's offline navigation fallback in `src/sw.ts`):
+  - Home page: https://anasob313.github.io/attendance/home/
+  - Privacy Policy: https://anasob313.github.io/attendance/privacy/
+  - Terms of Service: https://anasob313.github.io/attendance/terms/
+  - Linked from every sign-in screen. **Keep the Privacy Policy accurate whenever data handling changes.**
+- Google Auth Platform authorized domains: `anasob313.github.io` and `jhofnqvnjbxobjisfukx.supabase.co` (both `github.io` and `supabase.co` are on the Public Suffix List, so these are the registrable domains). Brand verification not requested (no logo) — not needed for the basic openid/email/profile scopes.
 - Google OAuth client redirect URI: `https://jhofnqvnjbxobjisfukx.supabase.co/auth/v1/callback`. Client ID/secret live only in Supabase (Auth → Providers → Google).
 
 ## How to make a change (workflow for future sessions)
@@ -83,3 +89,4 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
 | 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |
 | 2026-10-31 | Email plan (Gmail SMTP) dropped; added "Continue with Google"; new-user email sign-up hidden (owner approved); profile-name migration applied; temporary `auth-admin` function retired (stub) and its code removed; browser tests extended (email-link handling, Google flow) — 50/50 pass. |
+| 2026-10-31 | Added public Home, Privacy Policy and Terms pages for Google's OAuth requirements; links on sign-in screens; service worker no longer answers these pages with the app shell. |

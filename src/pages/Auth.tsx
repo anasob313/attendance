@@ -65,6 +65,11 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
       </div>
       <div className="card">{children}</div>
       {footer && <div className="mt-6 text-center text-sm text-zinc-500">{footer}</div>}
+      <div className="mt-8 flex justify-center gap-4 text-xs text-zinc-500">
+        <a href={`${import.meta.env.BASE_URL}home/`} className="underline">About</a>
+        <a href={`${import.meta.env.BASE_URL}privacy/`} className="underline">Privacy Policy</a>
+        <a href={`${import.meta.env.BASE_URL}terms/`} className="underline">Terms</a>
+      </div>
     </div>
   );
 }

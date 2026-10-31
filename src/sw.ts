@@ -9,7 +9,11 @@ cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 // Single-page app: every navigation is served the cached index.html, so the
 // app opens offline. API calls to Supabase are never cached.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
+// The public information pages (home, privacy, terms) are separate static
+// pages, not app routes, so they are never answered with the app shell.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
+  denylist: [/\/(home|privacy|terms)(\/|\/index\.html)?$/],
+}));
 
 self.addEventListener('install', () => { void self.skipWaiting(); });
 self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
