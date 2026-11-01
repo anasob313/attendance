@@ -27,8 +27,8 @@ Update this file with every change. Last updated: **2026-10-31**.
 | pg_cron job `send-attendance-reminders` (every minute) | ✅ running, function returns 200 |
 | Housekeeping job | ⏳ **pending owner approval** — `supabase/migrations/PENDING_20261030000002_housekeeping.sql` |
 | Edge Function `auth-admin` | 🗑️ retired (v3 = empty stub returning 410, verify_jwt on, no secrets). Owner may delete it in the dashboard; the connector has no delete tool |
-| Google sign-in (Supabase provider `google`) | ⏳ owner setup in progress — see "Authentication" below |
-| Auth Site URL / redirect URLs | ⏳ owner to set Site URL `https://anasob313.github.io/attendance/` and redirect `https://anasob313.github.io/attendance/**` (dashboard only) |
+| Google sign-in (Supabase provider `google`) | ✅ enabled 2026-11-01 (Google Auth Platform project "Attendance", In production, External; Web client "Attendance web"). Verified: /authorize → accounts.google.com with redirect_uri `…supabase.co/auth/v1/callback`, scopes `email profile`. Real iPhone sign-in: ⏳ owner test |
+| Auth Site URL / redirect URLs | ✅ Site URL `https://anasob313.github.io/attendance/`, redirect `https://anasob313.github.io/attendance/**` (verified 2026-11-01 via `auth.flow_state.referrer`: allowed paths kept, unknown hosts fall back to the Site URL) |
 | Custom SMTP | ❌ not used (decision 2026-10-31) — no email sender without buying a domain |
 
 ### Secrets — where they live (never in this repository)
@@ -89,4 +89,9 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
 | 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |
 | 2026-10-31 | Email plan (Gmail SMTP) dropped; added "Continue with Google"; new-user email sign-up hidden (owner approved); profile-name migration applied; temporary `auth-admin` function retired (stub) and its code removed; browser tests extended (email-link handling, Google flow) — 50/50 pass. |
+| 2026-11-01 | Owner created the Google OAuth client and enabled the Google provider; Site URL + redirect allow-list set. Verified via a temporary read-only check (auth-admin v4–5, no secrets), then auth-admin restored to the retired stub (v6, verify_jwt on). |
 | 2026-10-31 | Added public Home, Privacy Policy and Terms pages for Google's OAuth requirements; links on sign-in screens; service worker no longer answers these pages with the app shell. |
+
+
+### Verifying auth redirect settings (tip)
+pg_net follows redirects, so `/authorize`'s Location header can't be read from SQL. The state is opaque (not a JWT); read `auth.flow_state.referrer` for rows created by a test `/authorize` call instead (read-only).
