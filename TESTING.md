@@ -29,7 +29,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 | 1 | Exactly 8 working hours | **TESTED** | Unit: 08:00→16:00 = 480 min, GREEN, 0 shortfall; DB stores 480 min |
 | 2 | More than 8 hours | **TESTED** | Unit + DB + E2E: 08:00→16:30 = 8h 30m, not capped |
 | 3 | Less than 8 hours | **TESTED** | Unit: 08:00→15:30 = 7h 30m, RED, 30 m shortfall; E2E shows "Short" |
-| 4 | Notification at Clock In + 7h40 | Scheduling **TESTED** · Delivery on iPhone **NOT VERIFIED** | DB + E2E: `fire_at − clock_in = 460 min`; Deno: exact message text, encryption round-trip |
+| 4 | Notification at Clock In + 7h40 | Scheduling **TESTED** · Push delivery to iPhone **VERIFIED ON iPHONE (owner)** with *Send test*, 2026-11-01 · first real 7h40 reminder: pending (first working day 2026-11-01) | DB + E2E: `fire_at − clock_in = 460 min`; Deno: exact message text, encryption round-trip |
 | 5 | Early Clock Out | **TESTED** | DB + E2E: reminder → `cancelled` |
 | 6 | Accidental Clock Out + Undo | **TESTED** | DB + E2E: same session id, original Clock In kept, Clock Out removed, reminder re-scheduled; past reminder → `skipped` (not sent late) |
 | 7 | Accidental Remote Work + Undo | **TESTED** (DB) · UI **IMPLEMENTED** | DB: remote → office → remote conversions and undo return the day to Not Recorded |
@@ -115,7 +115,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 | 9 | Calendar | IMPLEMENTED · TESTED (renders, day editor) | `src/pages/Calendar.tsx` |
 | 10 | Monthly reports | IMPLEMENTED · TESTED | `src/pages/Reports.tsx` |
 | 11 | Excel export (.xlsx) | IMPLEMENTED · TESTED | `src/lib/excel.ts` |
-| 12 | Push infrastructure | IMPLEMENTED · logic TESTED · iPhone delivery NOT VERIFIED · CONFIGURATION REQUIRED | `supabase/functions/send-reminders/`, `supabase/setup/cron.sql`, `src/lib/push.ts`, `src/sw.ts` |
+| 12 | Push infrastructure | IMPLEMENTED · logic TESTED · configured in production · iPhone delivery **VERIFIED ON iPHONE (owner)** (test notification, 2026-11-01) | `supabase/functions/send-reminders/`, `supabase/setup/cron.sql`, `src/lib/push.ts`, `src/sw.ts` |
 | 13 | Offline synchronization | IMPLEMENTED · TESTED (Chromium) | `src/lib/sync.ts`, `src/state/data.tsx` |
 | 14 | PWA configuration | IMPLEMENTED · TESTED (Chromium) · iPhone NOT VERIFIED | `vite.config.ts`, `index.html`, `public/icons/` |
 | 15 | Deployment instructions | DONE | `SETUP.md` §1–5 |
