@@ -50,7 +50,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 | 22 | Notification rescheduling | **TESTED** | DB: Clock In edits, lead-time and duration changes; E2E: lead 30 → `fire_at = clock_in + 450 min` for that user only |
 | 23 | Account deletion | **TESTED** (emulated auth) · on real Supabase **NOT VERIFIED** | DB + E2E: all of the user's rows and auth record removed; other user intact |
 | 24 | iPhone Home Screen installation | **VERIFIED ON iPHONE (owner)** — installed and used daily from the Home Screen | Manifest, icons, `apple-mobile-web-app-*` tags and service worker built; offline start verified in Chromium |
-| 25 | Push on a locked iPhone | **NOT VERIFIED** | Requires a physical iPhone + deployed backend |
+| 25 | Push on a locked iPhone | **VERIFIED ON iPHONE** — 2026-11-01, app closed + phone locked: Apple 201, device receipt *displayed* 2.7 s later (`push_deliveries`) | Requires a physical iPhone + deployed backend |
 
 ### Verify on your iPhone after deployment (10 minutes)
 
