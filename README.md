@@ -7,6 +7,16 @@ Clock in / out, see a live timer against an 8-hour day (breaks included), get **
 push reminder 20 minutes before the 8 hours are up**, record remote work and leave,
 and export monthly reports to Excel.
 
+### Using the app (share this with others)
+
+1. On iPhone, open **https://anasob313.github.io/attendance/** in **Safari**.
+2. Tap **Share → Add to Home Screen**, then open **Attendance** from the Home Screen.
+3. Tap **Continue with Google** to create your private account.
+4. In **Settings → Notifications**, tap **Enable notifications on this device**, then **Send test**.
+
+Each account is private: nobody else (including other users) can see your records.
+[About](https://anasob313.github.io/attendance/home/) · [Privacy Policy](https://anasob313.github.io/attendance/privacy/) · [Terms](https://anasob313.github.io/attendance/terms/)
+
 > Personal tool only. It does not connect to, read from, or change any employer
 > attendance or biometric system.
 

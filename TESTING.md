@@ -18,7 +18,8 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 - The browser tests use an **emulation** of Supabase Auth and PostgREST (with the real
   schema, RLS and functions underneath). The real hosted Supabase services, real e-mail
   delivery and real Apple push delivery were **not** exercised.
-- **No physical iPhone was used.** Every iPhone-specific behaviour is **NOT VERIFIED**.
+- **No physical iPhone was used by the automated tests.** iPhone-specific behaviour is **NOT VERIFIED** unless marked
+  **VERIFIED ON iPHONE (owner)** — reported by the owner on his iPhone, 2026-11-01.
 - **CONFIGURATION REQUIRED** = works only after you complete the matching step in `SETUP.md`.
 
 ## Required test cases (section 26)
@@ -48,7 +49,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 | 21 | Notification cancellation | **TESTED** | DB + E2E |
 | 22 | Notification rescheduling | **TESTED** | DB: Clock In edits, lead-time and duration changes; E2E: lead 30 → `fire_at = clock_in + 450 min` for that user only |
 | 23 | Account deletion | **TESTED** (emulated auth) · on real Supabase **NOT VERIFIED** | DB + E2E: all of the user's rows and auth record removed; other user intact |
-| 24 | iPhone Home Screen installation | **NOT VERIFIED** | Manifest, icons, `apple-mobile-web-app-*` tags and service worker built; offline start verified in Chromium |
+| 24 | iPhone Home Screen installation | **VERIFIED ON iPHONE (owner)** — installed and used daily from the Home Screen | Manifest, icons, `apple-mobile-web-app-*` tags and service worker built; offline start verified in Chromium |
 | 25 | Push on a locked iPhone | **NOT VERIFIED** | Requires a physical iPhone + deployed backend |
 
 ### Verify on your iPhone after deployment (10 minutes)
@@ -96,7 +97,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 - Free Supabase projects pause after ~7 days without activity (restorable, no data loss) and have no automatic backups — use **Export all records** periodically.
 - Password-reset and confirmation links open in Safari, not in the Home Screen app; afterwards sign in inside the app.
 - New users sign up with Google. Supabase's built-in e-mail only reaches your Supabase team members, so e-mail sign-up is hidden; existing e-mail accounts still sign in with their password.
-- Google sign-in inside the iPhone Home Screen app is NOT VERIFIED on a real device yet (tested in Chromium with an emulated Google flow).
+- Google sign-in inside the iPhone Home Screen app: **VERIFIED ON iPHONE (owner)**, 2026-11-01 — returned to the app, account created, sync working.
 - Free tiers can change; nothing here is guaranteed to remain free.
 
 ## Final implementation checklist (section 27)
@@ -105,7 +106,7 @@ The migration was also executed on a real **PostgreSQL 16** server as a non-supe
 |---|---|---|---|
 | 1 | Runnable source code | IMPLEMENTED · builds | `src/`, `supabase/`, `package.json` |
 | 2 | Database schema | IMPLEMENTED · TESTED | `supabase/migrations/20261029000001_schema.sql` |
-| 3 | Authentication (sign up, log in, log out, forgot/reset password, persistent login) | IMPLEMENTED · TESTED with emulated auth (sign up, log in, wrong password, persistent login across reloads, log out, second device) · Google sign-in TESTED with emulated provider · e-mail links handled (TESTED) · real Google + iPhone NOT VERIFIED | `src/pages/Auth.tsx`, `src/state/auth.tsx` |
+| 3 | Authentication (sign up, log in, log out, forgot/reset password, persistent login) | IMPLEMENTED · TESTED with emulated auth (sign up, log in, wrong password, persistent login across reloads, log out, second device) · Google sign-in TESTED with emulated provider · e-mail links handled (TESTED) · real Google sign-in on iPhone **VERIFIED ON iPHONE (owner)** | `src/pages/Auth.tsx`, `src/state/auth.tsx` |
 | 4 | Row Level Security | IMPLEMENTED · TESTED | migration (policies + revokes) |
 | 5 | Attendance calculation | IMPLEMENTED · TESTED | `src/lib/attendance.ts`, `src/lib/time.ts` |
 | 6 | Remote Work | IMPLEMENTED · TESTED | dashboard, `DayEditor.tsx`, `set_remote` / `delete_remote` |

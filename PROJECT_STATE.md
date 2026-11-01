@@ -57,6 +57,15 @@ The VAPID key pair must never be regenerated: every device would have to re-enab
 - Google Auth Platform authorized domains: `anasob313.github.io` and `jhofnqvnjbxobjisfukx.supabase.co` (both `github.io` and `supabase.co` are on the Public Suffix List, so these are the registrable domains). Brand verification not requested (no logo) — not needed for the basic openid/email/profile scopes.
 - Google OAuth client redirect URI: `https://jhofnqvnjbxobjisfukx.supabase.co/auth/v1/callback`. Client ID/secret live only in Supabase (Auth → Providers → Google).
 
+## Accounts & go-live (2026-11-01)
+
+- Owner's **primary account: Google sign-in** (created 2026-11-01, first working day 2026-11-01). Settings: 8 h day, reminder 20 min before (Clock In + 7h40), working days Sun–Thu, Asia/Riyadh.
+- Owner's original **e-mail account is kept unchanged** (no records; nothing deleted). His iPhone's push registration moved to the Google account when he signed in there — by design, one device belongs to the account signed in on it.
+- Verified 2026-11-01 (read-only): 2 accounts, each with its own profile + settings; RLS on all 7 tables; simulated as each user, only own rows visible; `anon` has no table privileges; cron runs every minute (60/60 succeeded in the last hour, send-reminders HTTP 200); iPhone push subscription (`web.push.apple.com`) registered to the Google account.
+- Security advisor warnings are known and accepted: `pg_net` in `public` (Supabase default), `delete_my_account` / `register_push_subscription` are SECURITY DEFINER by design (both use `auth.uid()` only), `rls_auto_enable` is Supabase's own event-trigger function (not callable as RPC), leaked-password protection is a paid-plan feature.
+- **Ready to share**: send people https://anasob313.github.io/attendance/ — they sign up with Google (steps in README "Using the app").
+- Free-plan capacity: up to 50,000 monthly active users on Supabase Free; the project pauses after 7 days without activity (the keep-alive workflow pings it every 2 days).
+
 ## How to make a change (workflow for future sessions)
 
 Requirements: the **Supabase** connector and a linked **GitHub** account in the session.
@@ -76,7 +85,7 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 
 ## Known limitations
 
-- Google sign-in inside the iPhone Home Screen app: iOS opens Google in an in-app browser sheet and returns to the app; verified in Chromium tests only until tested on the owner's iPhone.
+- Google sign-in inside the iPhone Home Screen app: verified by the owner on his iPhone (2026-11-01) — returns to the app.
 - Free Supabase projects pause after ~7 days without activity (daily use prevents it; `keepalive.yml` pings every 2 days). No automatic backups on Free — use **Profile → Export all records**.
 - GitHub disables scheduled workflows after 60 days without commits (re-enable in Actions).
 - Push needs iOS 16.4+, the Home Screen app, and permission per device. Delivery is typically within ~1 minute of Clock In + 7h40.
@@ -89,6 +98,7 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
 | 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |
 | 2026-10-31 | Email plan (Gmail SMTP) dropped; added "Continue with Google"; new-user email sign-up hidden (owner approved); profile-name migration applied; temporary `auth-admin` function retired (stub) and its code removed; browser tests extended (email-link handling, Google flow) — 50/50 pass. |
+| 2026-11-01 | Owner tested Google sign-in on iPhone (works); Google account made primary; pre-go-live checks done (see "Accounts & go-live"); README has user instructions for sharing. |
 | 2026-11-01 | Owner created the Google OAuth client and enabled the Google provider; Site URL + redirect allow-list set. Verified via a temporary read-only check (auth-admin v4–5, no secrets), then auth-admin restored to the retired stub (v6, verify_jwt on). |
 | 2026-10-31 | Added public Home, Privacy Policy and Terms pages for Google's OAuth requirements; links on sign-in screens; service worker no longer answers these pages with the app shell. |
 
