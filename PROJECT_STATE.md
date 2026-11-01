@@ -98,11 +98,22 @@ Roll back: `git revert <commit>` and push (frontend). Database changes need a ne
 | 2026-10-30 | Owner applied migration, deployed function, set secrets. Claude: enabled pg_cron/pg_net, stored Vault secrets, scheduled reminders; function v6 repairs pasted secrets (the stored public key had been damaged in pasting) and reports config problems instead of crashing; app made sub-path aware for GitHub Pages; deploy workflow added. |
 | 2026-10-30 | Repository created (anasob313/attendance) and code pushed; site published to GitHub Pages via `gh-pages`; workflow switched to gh-pages publishing; public build values moved to `.env.production`. |
 | 2026-10-31 | Email plan (Gmail SMTP) dropped; added "Continue with Google"; new-user email sign-up hidden (owner approved); profile-name migration applied; temporary `auth-admin` function retired (stub) and its code removed; browser tests extended (email-link handling, Google flow) — 50/50 pass. |
+| 2026-11-01 | **Incident — first real reminder not seen on iPhone.** Evidence: session clock-in 09:05:44 Riyadh → reminder fire_at 16:45:44 (+7h40, correct), claimed by cron 16:46:00, Apple push service accepted it (`sent:1`, no error, subscription not removed), status `sent` at 16:46:01. The device row was re-created at 16:47:24 when the app was opened (old register = delete+insert) — same endpoint, but it erased last_success_at. The server had no way to know whether the iPhone displayed it; the morning test only proved delivery with the app open. Fix (migration `20261101000001_push_receipts`, send-reminders v7, SW): every push recorded in `push_deliveries` with the push service status and a **device receipt** sent by the service worker after `showNotification` (`displayed_at` / `display_error`); register_push_subscription now updates in place (history kept); new *Test reminder with the app closed (30 s)* in Settings + a cron-secret support path to test a user's devices. |
 | 2026-11-01 | Notification test **passed**: owner received *Send test* on his iPhone (Google account). Note: test sends don't update `last_success_at`; only real reminders do. |
 | 2026-11-01 | Owner tested Google sign-in on iPhone (works); Google account made primary; pre-go-live checks done (see "Accounts & go-live"); README has user instructions for sharing. |
 | 2026-11-01 | Owner created the Google OAuth client and enabled the Google provider; Site URL + redirect allow-list set. Verified via a temporary read-only check (auth-admin v4–5, no secrets), then auth-admin restored to the retired stub (v6, verify_jwt on). |
 | 2026-10-31 | Added public Home, Privacy Policy and Terms pages for Google's OAuth requirements; links on sign-in screens; service worker no longer answers these pages with the app shell. |
 
+
+### Checking a reminder (support)
+
+```sql
+select d.kind, d.sent_at, d.push_status, d.push_error, d.displayed_at, d.display_error
+from public.push_deliveries d where d.user_id = '<user id>' order by d.sent_at desc limit 10;
+```
+`push_status` 201 = accepted by Apple/Google; `displayed_at` set = the phone's service worker showed it. Accepted but no receipt = the device did not run/show it (app deleted from Home Screen, notifications off, or iOS did not wake the app).
+Support test to a user's devices (no user action; same format as a reminder):
+`select net.http_post(url := (select decrypted_secret from vault.decrypted_secrets where name='attendance_project_url') || '/functions/v1/send-reminders', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret',(select decrypted_secret from vault.decrypted_secrets where name='attendance_cron_secret')), body := jsonb_build_object('type','test','userId','<user id>','delaySeconds',1));`
 
 ### Verifying auth redirect settings (tip)
 pg_net follows redirects, so `/authorize`'s Location header can't be read from SQL. The state is opaque (not a JWT); read `auth.flow_state.referrer` for rows created by a test `/authorize` call instead (read-only).

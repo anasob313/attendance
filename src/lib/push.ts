@@ -126,7 +126,8 @@ export async function disablePush(): Promise<void> {
   await sub.unsubscribe();
 }
 
-export async function sendTestPush(): Promise<{ devices: number; delivered: number }> {
+/** Send a test now, or (delaySeconds > 0) a reminder-style test later, so it can be checked with the app closed. */
+export async function sendTestPush(delaySeconds = 0): Promise<{ devices: number; delivered?: number; scheduled?: boolean }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new AppError('Please sign in again.', { auth: true });
@@ -135,7 +136,7 @@ export async function sendTestPush(): Promise<{ devices: number; delivered: numb
     res = await fetch(`${FUNCTIONS_URL}/send-reminders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '' },
-      body: JSON.stringify({ type: 'test' }),
+      body: JSON.stringify({ type: 'test', delaySeconds }),
     });
   } catch (e) {
     throw toAppError(e);

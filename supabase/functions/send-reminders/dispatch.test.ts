@@ -130,3 +130,14 @@ Deno.test('config: reports wrong values without leaking private ones', () => {
   assert(c.problems.some((p) => p.includes('CRON_SECRET')));
   assert(!c.problems.join(' ').includes(b.privateKey));
 });
+
+Deno.test('each reminder push carries who and what it is for (delivery record)', async () => {
+  const metas: unknown[] = [];
+  const { deps } = fakeDeps({ statuses: [201, 201] });
+  deps.send = async (_sub, _payload, _opts, meta) => void metas.push(meta);
+  await dispatch(deps);
+  assertEquals(metas, [
+    { userId: 'u1', sessionId: '11111111-2222-3333-4444-555555555555', kind: 'reminder' },
+    { userId: 'u1', sessionId: '11111111-2222-3333-4444-555555555555', kind: 'reminder' },
+  ]);
+});

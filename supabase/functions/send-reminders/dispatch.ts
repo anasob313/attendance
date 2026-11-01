@@ -23,11 +23,18 @@ export interface SendOptions {
   topic: string;
 }
 
+/** Who/what a push is for (used to record the delivery). */
+export interface SendMeta {
+  userId: string;
+  sessionId: string | null;
+  kind: 'reminder' | 'test';
+}
+
 export interface Deps {
   claim(): Promise<DueReminder[]>;
   subscriptions(userId: string): Promise<Subscription[]>;
   /** Resolves on 2xx; rejects with an error carrying `statusCode` otherwise. */
-  send(sub: Subscription, payload: string, opts: SendOptions): Promise<unknown>;
+  send(sub: Subscription, payload: string, opts: SendOptions, meta: SendMeta): Promise<unknown>;
   removeSubscription(id: string): Promise<void>;
   markDelivered(id: string): Promise<void>;
   markFailure(id: string): Promise<void>;
@@ -75,7 +82,7 @@ export async function dispatch(deps: Deps) {
       const ttlSeconds = Math.max(60, Math.floor((completeAt - deps.now()) / 1000));
       const topic = r.session_id.replace(/-/g, '').slice(0, 32);
 
-      const results = await Promise.allSettled(subs.map((s) => deps.send(s, payload, { ttlSeconds, topic })));
+      const results = await Promise.allSettled(subs.map((s) => deps.send(s, payload, { ttlSeconds, topic }, { userId: r.user_id, sessionId: r.session_id, kind: 'reminder' })));
       let delivered = 0;
       let gone = 0;
       const errors: string[] = [];

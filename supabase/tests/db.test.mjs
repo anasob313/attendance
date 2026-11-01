@@ -76,6 +76,7 @@ before(async () => {
   await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'early@example.com', '{"full_name":"Early Bird"}')`, [EARLY]);
   await db.exec(migration);
   await db.exec(readFileSync(new URL('../migrations/20261031000001_oauth_profile_name.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../migrations/20261101000001_push_receipts.sql', import.meta.url), 'utf8'));
   users.a = await newUser('Alice');
   users.b = await newUser('Bob');
 });
@@ -423,4 +424,42 @@ test('Google sign-up: profile name comes from full_name or name', async () => {
   assert.equal((await one(`select full_name from profiles where id = $1`, [id1])).full_name, 'Only Name');
   assert.equal((await one(`select full_name from profiles where id = $1`, [id2])).full_name, 'Full Name');
   assert.equal((await one(`select work_minutes from user_settings where user_id = $1`, [id1])).work_minutes, 480);
+});
+
+test('push re-registration keeps the device row and its delivery history', async () => {
+  const users = { a: await newUser('Pia'), b: await newUser('Pete') };
+  const ep = 'https://web.push.apple.com/device-history';
+  const first = (await asUser(users.a, () => one(`select register_push_subscription($1, 'k', 'a', 'iPhone') as id`, [ep]))).id;
+  await asService(() => q(`update public.push_subscriptions set last_success_at = now(), failure_count = 2 where id = $1`, [first]));
+  // app restarts: same account, possibly rotated keys
+  const again = (await asUser(users.a, () => one(`select register_push_subscription($1, 'k-new', 'a-new', 'iPhone') as id`, [ep]))).id;
+  assert.equal(again, first, 'same row is kept');
+  const row = await one(`select p256dh, last_success_at, failure_count from push_subscriptions where id = $1`, [first]);
+  assert.equal(row.p256dh, 'k-new');
+  assert.ok(row.last_success_at, 'history kept for the same account');
+  assert.equal(row.failure_count, 2);
+  // another account signs in on the same device: it moves, history resets
+  await asUser(users.b, () => q(`select register_push_subscription($1, 'k2', 'a2', 'iPhone')`, [ep]));
+  const moved = await one(`select user_id, last_success_at, failure_count from push_subscriptions where endpoint = $1`, [ep]);
+  assert.equal(moved.user_id, users.b);
+  assert.equal(moved.last_success_at, null);
+  assert.equal(moved.failure_count, 0);
+  assert.equal((await one(`select count(*)::int n from push_subscriptions where endpoint = $1`, [ep])).n, 1);
+});
+
+test('push deliveries: only the service writes; each user reads only their own', async () => {
+  const users = { a: await newUser('Dee'), b: await newUser('Dan') };
+  const hash = 'a'.repeat(64);
+  await asService(() => q(`insert into public.push_deliveries (user_id, kind, endpoint_host, endpoint_hash, push_status)
+                           values ($1, 'test', 'web.push.apple.com', $3, 201), ($2, 'test', 'web.push.apple.com', $3, 201)`,
+                          [users.a, users.b, hash]));
+  await asService(() => q(`update public.push_deliveries set displayed_at = now() where user_id = $1`, [users.a]));
+  const mine = await asUser(users.a, () => q(`select user_id, displayed_at from public.push_deliveries`));
+  assert.ok(mine.length >= 1 && mine.every((r) => r.user_id === users.a && r.displayed_at));
+  await asUser(users.a, async () => {
+    await expectError(q(`insert into public.push_deliveries (user_id, kind, endpoint_hash) values ($1, 'test', $2)`, [users.a, hash]), '42501');
+    await expectError(q(`update public.push_deliveries set displayed_at = now()`), '42501');
+  });
+  await asUser(null, () => expectError(q(`select 1 from public.push_deliveries`), '42501'));
+  await expectError(asService(() => q(`insert into public.push_deliveries (user_id, kind, endpoint_hash) values ($1, 'test', 'not-a-hash')`, [users.a])), '23514');
 });

@@ -23,21 +23,47 @@ function inScope(path: string): string {
   return new URL(path.replace(/^\//, ''), self.registration.scope).href;
 }
 
-interface PushPayload { title?: string; body?: string; detail?: string; tag?: string; url?: string }
+interface PushPayload { title?: string; body?: string; detail?: string; tag?: string; url?: string; deliveryId?: string }
+
+const FUNCTIONS_URL = ((import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '').replace(/\/$/, '') + '/functions/v1';
+
+/** Tell the server this device displayed (or failed to display) the notification. Never throws. */
+async function sendReceipt(id: string, error: string | null): Promise<void> {
+  try {
+    const sub = await self.registration.pushManager.getSubscription();
+    if (!sub) return;
+    // text/plain keeps this a "simple" request (no CORS preflight).
+    const req = fetch(`${FUNCTIONS_URL}/send-reminders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'receipt', id, endpoint: sub.endpoint, error }),
+      keepalive: true,
+    });
+    await Promise.race([req, new Promise((r) => setTimeout(r, 5000))]);
+  } catch { /* the notification itself matters more than the receipt */ }
+}
 
 self.addEventListener('push', (event) => {
   let data: PushPayload = {};
   try { data = event.data?.json() ?? {}; } catch { data = { body: event.data?.text() }; }
-  // iOS requires every push to show a visible notification.
+  // iOS requires every push to show a visible notification — show it first.
   const title = data.title ?? 'Attendance';
   const body = [data.body, data.detail].filter(Boolean).join('\n') || 'You have a new notification.';
-  event.waitUntil(self.registration.showNotification(title, {
-    body,
-    tag: data.tag,
-    icon: inScope('icons/icon-192.png'),
-    badge: inScope('icons/badge-72.png'),
-    data: { url: data.url ?? '/' },
-  }));
+  event.waitUntil((async () => {
+    let error: string | null = null;
+    try {
+      await self.registration.showNotification(title, {
+        body,
+        tag: data.tag,
+        icon: inScope('icons/icon-192.png'),
+        badge: inScope('icons/badge-72.png'),
+        data: { url: data.url ?? '/' },
+      });
+    } catch (e) {
+      error = `showNotification failed: ${String((e as Error)?.message ?? e)}`.slice(0, 300);
+    }
+    if (data.deliveryId && /^https?:\/\//.test(FUNCTIONS_URL)) await sendReceipt(data.deliveryId, error);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

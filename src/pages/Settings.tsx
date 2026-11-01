@@ -203,12 +203,18 @@ function NotificationsSection() {
 
         {support.ok && (
           enabledHere ? (
-            <div className="grid grid-cols-2 gap-3">
-              <button className="btn-secondary" disabled={busy || !data.online} onClick={() => act(async () => {
-                const r = await sendTestPush();
-                toast(`Test sent to ${r.delivered} of ${r.devices} device${r.devices === 1 ? '' : 's'}`, { tone: 'success' });
-              })}>Send test</button>
-              <button className="btn-secondary" disabled={busy} onClick={() => act(async () => { await disablePush(); toast('Notifications turned off on this device'); })}>Turn off here</button>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <button className="btn-secondary" disabled={busy || !data.online} onClick={() => act(async () => {
+                  const r = await sendTestPush();
+                  toast(`Test sent to ${r.delivered ?? 0} of ${r.devices} device${r.devices === 1 ? '' : 's'}`, { tone: 'success' });
+                })}>Send test</button>
+                <button className="btn-secondary" disabled={busy} onClick={() => act(async () => { await disablePush(); toast('Notifications turned off on this device'); })}>Turn off here</button>
+              </div>
+              <button className="btn-secondary w-full" disabled={busy || !data.online} onClick={() => act(async () => {
+                await sendTestPush(30);
+                toast('Test reminder in 30 seconds — close the app and lock your phone now.', { tone: 'success' });
+              })}>Test reminder with the app closed (30 s)</button>
             </div>
           ) : (
             <button className="btn-primary w-full" disabled={busy || !data.online}
