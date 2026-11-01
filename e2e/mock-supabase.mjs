@@ -26,6 +26,8 @@ await db.exec(`
 `);
 await db.exec(migration);
 await db.exec(readFileSync(new URL('../supabase/migrations/20261031000001_oauth_profile_name.sql', import.meta.url), 'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20261101000001_push_receipts.sql', import.meta.url), 'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20261101000002_reminder_watchdog.sql', import.meta.url), 'utf8'));
 
 const passwords = new Map();
 let lock = Promise.resolve();

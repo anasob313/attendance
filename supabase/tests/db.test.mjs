@@ -77,6 +77,7 @@ before(async () => {
   await db.exec(migration);
   await db.exec(readFileSync(new URL('../migrations/20261031000001_oauth_profile_name.sql', import.meta.url), 'utf8'));
   await db.exec(readFileSync(new URL('../migrations/20261101000001_push_receipts.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../migrations/20261101000002_reminder_watchdog.sql', import.meta.url), 'utf8'));
   users.a = await newUser('Alice');
   users.b = await newUser('Bob');
 });
@@ -374,7 +375,7 @@ test('running the migration twice is refused without changing anything', async (
 test('internal helpers are not exposed in the public (API) schema', async () => {
   const exposed = await q(`select p.proname from pg_proc p where p.pronamespace = 'public'::regnamespace order by 1`);
   assert.deepEqual(exposed.map((r) => r.proname), [
-    'claim_due_reminders', 'clock_in', 'clock_out', 'delete_leave', 'delete_my_account', 'delete_remote',
+    'claim_due_reminders', 'claim_unconfirmed_reminders', 'clock_in', 'clock_out', 'delete_leave', 'delete_my_account', 'delete_remote',
     'delete_session', 'finish_reminder', 'ping', 'recalculate_required_minutes', 'register_push_subscription',
     'save_leave', 'set_remote', 'undo_clock_out', 'unregister_push_subscription', 'upsert_session',
   ]);
@@ -462,4 +463,30 @@ test('push deliveries: only the service writes; each user reads only their own',
   });
   await asUser(null, () => expectError(q(`select 1 from public.push_deliveries`), '42501'));
   await expectError(asService(() => q(`insert into public.push_deliveries (user_id, kind, endpoint_hash) values ($1, 'test', 'not-a-hash')`, [users.a])), '23514');
+});
+
+test('watchdog claims each unconfirmed reminder delivery once, and only those', async () => {
+  const u = await newUser('Wanda');
+  const sid = randomUUID();
+  await asUser(u, () => q(`select clock_in($1, now() - interval '7 hours 45 minutes')`, [sid]));
+  const hash = 'b'.repeat(64);
+  const ins = (extra) => asService(() => one(
+    `insert into public.push_deliveries (user_id, session_id, kind, endpoint_hash, push_status, sent_at, displayed_at, retry_of)
+     values ($1, $2, 'reminder', $3, $4, now() - $5::interval, $6, $7) returning id`,
+    [u, sid, hash, extra.status ?? 201, extra.ago ?? '3 minutes', extra.displayed ?? null, extra.retryOf ?? null]));
+  const due = await ins({});
+  await ins({ displayed: new Date().toISOString() });        // confirmed by the device
+  await ins({ ago: '30 seconds' });                         // too recent: wait for the receipt
+  await ins({ ago: '45 minutes' });                         // too old
+  await ins({ status: 500 });                               // not accepted by the push service
+  await ins({ retryOf: due.id });                           // already a re-send
+  const first = await asService(() => q(`select * from public.claim_unconfirmed_reminders(120)`));
+  assert.equal(first.length, 1);
+  assert.equal(first[0].delivery_id, due.id);
+  assert.equal(first[0].session_id, sid);
+  assert.equal(first[0].clock_out, null);
+  assert.equal(first[0].lead_minutes, 20);
+  assert.equal((await asService(() => q(`select * from public.claim_unconfirmed_reminders(120)`))).length, 0, 'claimed only once');
+  await asUser(u, () => expectError(q(`select * from public.claim_unconfirmed_reminders(120)`), '42501'));
+  await asUser(null, () => expectError(q(`select * from public.claim_unconfirmed_reminders(120)`), '42501'));
 });

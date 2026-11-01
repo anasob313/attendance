@@ -9,14 +9,15 @@
 //  * POST {"type":"receipt","id","endpoint","error"?} — sent by the device's
 //    service worker after it displayed (or failed to display) a notification.
 // Every push is recorded in public.push_deliveries with the push service's
-// answer and the device receipt.
+// answer and the device receipt. Each cron run also re-sends, once, any
+// reminder the device has not confirmed after 2 minutes (watchdog).
 //
 // Deploy:  supabase functions deploy send-reminders --no-verify-jwt
 // Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRON_SECRET
 // (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.)
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { dispatch, safeEqual, type SendMeta, type SendOptions, type Subscription } from './dispatch.ts';
+import { dispatch, retryUnconfirmed, safeEqual, type SendMeta, type SendOptions, type Subscription } from './dispatch.ts';
 import { readConfig } from './config.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -60,7 +61,7 @@ async function send(sub: Subscription, payload: string, opts: SendOptions, meta:
   let host = '';
   try { host = new URL(sub.endpoint).host; } catch { /* keep empty */ }
   const { error: logError } = await admin.from('push_deliveries').insert({
-    id, user_id: meta.userId, session_id: meta.sessionId, kind: meta.kind,
+    id, user_id: meta.userId, session_id: meta.sessionId, kind: meta.kind, retry_of: meta.retryOf ?? null,
     endpoint_host: host.slice(0, 200), endpoint_hash: await sha256hex(sub.endpoint),
   });
   if (logError) console.error('push_deliveries insert failed', logError.message);
@@ -118,6 +119,21 @@ async function runDispatch() {
       const { error: e } = await admin.rpc('finish_reminder', { p_session: sessionId, p_outcome: outcome, p_error: error ?? null });
       if (e) throw e;
     },
+    now: () => Date.now(),
+    log: (m, x) => console.error(m, x),
+  });
+}
+
+async function runRetry() {
+  return retryUnconfirmed({
+    async claimUnconfirmed() {
+      const { data, error } = await admin.rpc('claim_unconfirmed_reminders', { p_wait_seconds: 120 });
+      if (error) throw error;
+      return data ?? [];
+    },
+    subscriptions: subscriptionsOf,
+    hash: sha256hex,
+    send,
     now: () => Date.now(),
     log: (m, x) => console.error(m, x),
   });
@@ -212,8 +228,13 @@ Deno.serve(async (req) => {
     if (body?.type === 'test') return await sendTest(req, body);
     if (!safeEqual(req.headers.get('x-cron-secret') ?? '', CRON_SECRET)) return json({ error: 'Forbidden' }, 403);
     const summary = await runDispatch();
-    if (summary.claimed) console.log('reminders', summary);
-    return json(summary);
+    // Watchdog: re-send reminders the device did not confirm (never blocks dispatch).
+    const watchdog = await runRetry().catch((e) => {
+      console.error('watchdog failed', e);
+      return { unconfirmed: 0, resent: 0, notResent: 0, error: String((e as Error)?.message ?? e) };
+    });
+    if (summary.claimed || watchdog.unconfirmed) console.log('reminders', summary, 'watchdog', watchdog);
+    return json({ ...summary, watchdog });
   } catch (e) {
     console.error(e);
     return json({ error: String((e as Error)?.message ?? e) }, 500);

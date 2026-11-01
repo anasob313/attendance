@@ -28,6 +28,8 @@ export interface SendMeta {
   userId: string;
   sessionId: string | null;
   kind: 'reminder' | 'test';
+  /** Set when this push re-sends an unconfirmed reminder delivery. */
+  retryOf?: string;
 }
 
 export interface Deps {
@@ -118,6 +120,60 @@ export async function dispatch(deps: Deps) {
       deps.log?.('dispatch error', e);
       await deps.finish(r.session_id, 'retry', String((e as Error)?.message ?? e)).catch(() => {});
       summary.failed++;
+    }
+  }
+  return summary;
+}
+
+/** A reminder delivery accepted by the push service but never confirmed by the device. */
+export interface Unconfirmed {
+  delivery_id: string;
+  user_id: string;
+  session_id: string;
+  endpoint_hash: string;
+  clock_in: string;
+  clock_out: string | null;
+  required_minutes: number;
+  lead_minutes: number;
+  timezone: string;
+}
+
+export interface RetryDeps {
+  claimUnconfirmed(): Promise<Unconfirmed[]>;
+  subscriptions(userId: string): Promise<Subscription[]>;
+  hash(endpoint: string): Promise<string>;
+  send(sub: Subscription, payload: string, opts: SendOptions, meta: SendMeta): Promise<unknown>;
+  now(): number;
+  log?(msg: string, extra?: unknown): void;
+}
+
+/**
+ * Re-send, once, each reminder the device did not confirm. Same payload and tag
+ * as the original (the phone replaces rather than duplicates it). Skipped when
+ * the session is closed, the 8 hours are (almost) complete, or the device is gone.
+ */
+export async function retryUnconfirmed(deps: RetryDeps) {
+  const list = await deps.claimUnconfirmed();
+  const summary = { unconfirmed: list.length, resent: 0, notResent: 0 };
+  for (const u of list) {
+    try {
+      const completeAt = Date.parse(u.clock_in) + u.required_minutes * 60_000;
+      if (u.clock_out || completeAt - deps.now() < 60_000) { summary.notResent++; continue; }
+      const subs = await deps.subscriptions(u.user_id);
+      let target: Subscription | undefined;
+      for (const s of subs) if ((await deps.hash(s.endpoint)) === u.endpoint_hash) { target = s; break; }
+      if (!target) { summary.notResent++; continue; }
+      const payload = JSON.stringify(buildPayload({
+        session_id: u.session_id, user_id: u.user_id, fire_at: '', clock_in: u.clock_in,
+        required_minutes: u.required_minutes, lead_minutes: u.lead_minutes, timezone: u.timezone,
+      }));
+      await deps.send(target, payload,
+        { ttlSeconds: Math.max(60, Math.floor((completeAt - deps.now()) / 1000)), topic: u.session_id.replace(/-/g, '').slice(0, 32) },
+        { userId: u.user_id, sessionId: u.session_id, kind: 'reminder', retryOf: u.delivery_id });
+      summary.resent++;
+    } catch (e) {
+      deps.log?.('retry error', e);
+      summary.notResent++;
     }
   }
   return summary;

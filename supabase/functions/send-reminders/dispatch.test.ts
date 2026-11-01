@@ -141,3 +141,51 @@ Deno.test('each reminder push carries who and what it is for (delivery record)',
     { userId: 'u1', sessionId: '11111111-2222-3333-4444-555555555555', kind: 'reminder' },
   ]);
 });
+
+import { retryUnconfirmed, type RetryDeps, type Unconfirmed } from './dispatch.ts';
+
+function retryDeps(list: Unconfirmed[], over: Partial<RetryDeps> = {}) {
+  const sent: Array<{ sub: string; meta: unknown; tag: string; ttl: number }> = [];
+  const deps: RetryDeps = {
+    claimUnconfirmed: async () => list,
+    subscriptions: async () => [{ id: 's0', endpoint: 'https://push.example/0', p256dh: 'k', auth: 'a' }, { id: 's1', endpoint: 'https://push.example/1', p256dh: 'k', auth: 'a' }],
+    hash: async (e) => `h:${e}`,
+    send: async (sub, payload, opts, meta) => void sent.push({ sub: sub.id, meta, tag: JSON.parse(payload).tag, ttl: opts.ttlSeconds }),
+    now: () => Date.parse('2026-10-29T12:43:00Z'),     // 3 min after fire time; completes 13:00
+    ...over,
+  };
+  return { deps, sent };
+}
+const unconfirmed = (over: Partial<Unconfirmed> = {}): Unconfirmed => ({
+  delivery_id: 'd1', user_id: 'u1', session_id: '11111111-2222-3333-4444-555555555555',
+  endpoint_hash: 'h:https://push.example/1', clock_in: '2026-10-29T05:00:00Z', clock_out: null,
+  required_minutes: 480, lead_minutes: 20, timezone: 'Asia/Riyadh', ...over,
+});
+
+Deno.test('watchdog re-sends an unconfirmed reminder once, to the same device, same tag', async () => {
+  const { deps, sent } = retryDeps([unconfirmed()]);
+  const s = await retryUnconfirmed(deps);
+  assertEquals(s, { unconfirmed: 1, resent: 1, notResent: 0 });
+  assertEquals(sent.length, 1);
+  assertEquals(sent[0].sub, 's1');
+  assertEquals(sent[0].tag, 'session-11111111-2222-3333-4444-555555555555');
+  assertEquals(sent[0].ttl, 17 * 60);
+  assertEquals(sent[0].meta, { userId: 'u1', sessionId: '11111111-2222-3333-4444-555555555555', kind: 'reminder', retryOf: 'd1' });
+});
+
+Deno.test('watchdog does not re-send after clock-out, near completion, or when the device is gone', async () => {
+  for (const [u, over] of [
+    [unconfirmed({ clock_out: '2026-10-29T12:42:00Z' }), {}],
+    [unconfirmed(), { now: () => Date.parse('2026-10-29T12:59:30Z') }],
+    [unconfirmed({ endpoint_hash: 'h:https://push.example/gone' }), {}],
+  ] as Array<[Unconfirmed, Partial<RetryDeps>]>) {
+    const { deps, sent } = retryDeps([u], over);
+    assertEquals(await retryUnconfirmed(deps), { unconfirmed: 1, resent: 0, notResent: 1 });
+    assertEquals(sent.length, 0);
+  }
+});
+
+Deno.test('watchdog: a failed re-send is counted, not thrown', async () => {
+  const { deps } = retryDeps([unconfirmed()], { send: async () => { throw Object.assign(new Error('x'), { statusCode: 500 }); } });
+  assertEquals(await retryUnconfirmed(deps), { unconfirmed: 1, resent: 0, notResent: 1 });
+});

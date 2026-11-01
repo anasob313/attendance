@@ -1,6 +1,7 @@
 // Thin, typed wrappers around Supabase. Every call runs with the signed-in
 // user's JWT, so Row Level Security restricts it to that user's rows.
 import { supabase } from './supabase';
+import type { DeliveryRecord, ReminderRecord } from './reminderHealth';
 import { AppError, toAppError } from './errors';
 import type { Leave, LeaveType, Profile, PushDevice, Reminder, RemoteDay, Session, Settings } from './types';
 
@@ -108,6 +109,19 @@ export const api = {
   async removeDevice(id: string) {
     const { error } = await supabase.from('push_subscriptions').delete().eq('id', id);
     if (error) throw toAppError(error);
+  },
+
+  // ---- reminder delivery evidence (read-only) ------------------------
+  async reminderHealth(sessionId: string): Promise<{ devices: number; reminder: ReminderRecord | null; deliveries: DeliveryRecord[] }> {
+    const [subs, rem, dels] = await Promise.all([
+      supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }),
+      supabase.from('reminders').select('status, fire_at, sent_at, last_error').eq('session_id', sessionId).maybeSingle(),
+      supabase.from('push_deliveries').select('sent_at, push_status, displayed_at, display_error')
+        .eq('session_id', sessionId).eq('kind', 'reminder').order('sent_at'),
+    ]);
+    const err = subs.error ?? rem.error ?? dels.error;
+    if (err) throw toAppError(err);
+    return { devices: subs.count ?? 0, reminder: (rem.data as ReminderRecord | null) ?? null, deliveries: (dels.data ?? []) as DeliveryRecord[] };
   },
 
   // ---- account ------------------------------------------------------

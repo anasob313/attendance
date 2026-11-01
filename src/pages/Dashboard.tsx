@@ -14,6 +14,8 @@ import { enablePush, isIOS, isStandalone, pushSupport } from '../lib/push';
 import { SyncBadge } from '../components/Layout';
 import { DayEditor } from '../components/DayEditor';
 import { Notice, Spinner, StatusPill } from '../components/ui';
+import { reminderIssue, type ReminderIssue } from '../lib/reminderHealth';
+import { api } from '../lib/api';
 import { IconBell, IconLaptop, IconPalm, IconUndo, IconUser } from '../components/icons';
 
 function greeting(hour: number) {
@@ -53,6 +55,27 @@ export function Dashboard() {
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(now));
 
   useEffect(() => { setPushState(pushSupport()); }, [permission]);
+
+  // Reminder delivery check for the latest session of the last 20 hours.
+  const recent = [...view.sessions]
+    .filter((s) => now - Date.parse(s.clock_in) < 20 * HOUR)
+    .sort((a, b) => Date.parse(b.clock_in) - Date.parse(a.clock_in))[0];
+  const recentId = recent?.id;
+  const recentOpen = Boolean(recent && !recent.clock_out);
+  const [reminderWarning, setReminderWarning] = useState<ReminderIssue | null>(null);
+  useEffect(() => {
+    if (!recentId || !data.online) { setReminderWarning(null); return; }
+    let stop = false;
+    const check = async () => {
+      try {
+        const h = await api.reminderHealth(recentId);
+        if (!stop) setReminderWarning(reminderIssue({ ...h, now: Date.now(), sessionOpen: recentOpen, timezone: tz }));
+      } catch { /* evidence is optional; never block the screen */ }
+    };
+    void check();
+    const id = window.setInterval(check, 60_000);
+    return () => { stop = true; window.clearInterval(id); };
+  }, [recentId, recentOpen, data.online, tz]);
 
   const guard = async (fn: () => Promise<unknown>) => {
     if (busy) return;               // double-tap protection
@@ -253,6 +276,11 @@ export function Dashboard() {
         {data.loadError && <Notice tone="error" action={<button className="font-semibold underline" onClick={() => data.refresh()}>Retry</button>}>{data.loadError}</Notice>}
         {!data.online && <Notice tone="warn">You are offline. Clock In, Clock Out and Remote Work still work and will sync automatically.</Notice>}
         {main}
+        {reminderWarning && (
+          <Notice tone={reminderWarning.tone} action={<Link to="/settings" className="font-semibold underline">Settings</Link>}>
+            {reminderWarning.text}
+          </Notice>
+        )}
         {showInstall && (
           <Notice action={<Link to="/install" className="font-semibold underline">How</Link>}>
             Add this app to your Home Screen to get the 8-hour reminder.
